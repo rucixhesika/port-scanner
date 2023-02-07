@@ -5,6 +5,7 @@ from socket import AF_INET
 from socket import SOCK_STREAM
 from socket import socket, gethostbyname
 from datetime import datetime
+from concurrent.futures import ThreadPoolExecutor
 
 banner = pyfiglet.figlet_format("PORT SCANNER")
 print(banner)
@@ -12,6 +13,7 @@ print(banner)
 
 
 # Create argument parser for Port Scanner program
+
 parser = argparse.ArgumentParser(
     prog = 'Port Scanner',
     description = 'Scans range of ports for an application or remote host',
@@ -25,8 +27,11 @@ parser.add_argument('-to-port', dest='last_port', type=int, help='Last port of p
 
 args = parser.parse_args()
 
+print(args)
+
 # Range of ports that will be scanned
 ports= range(args.first_port,args.last_port)
+
 
 
 # check if can connect to specific port
@@ -37,10 +42,12 @@ def test_port_number(host, port):
             start = datetime.now()
             sock.connect((host,port))
             print(f'Connection time: {datetime.now()-start}')
+            sock.close()
             return True
         except:
             print(f'Connection time: {datetime.now()-start}')
             return False
+
 
 
 def port_scan(host, ports):
@@ -49,9 +56,14 @@ def port_scan(host, ports):
     print("Scanning Target: " + host)
     print("Scanning started at:" + str(datetime.now()))
     print("-" * 50)
-    for port in ports:
+
+    # upper limit number of threads will be affected by amount of RAM you have available in your system
+    # I am setting the number of ports will be scanned
+    with ThreadPoolExecutor(len(ports)) as executor:
+        results = executor.map(test_port_number, [host]*len(ports), ports)
+    for port, is_open in zip(ports, results):
         try:
-            if test_port_number(host, port):
+            if is_open:
                 print(f'> {host}:{port} open')
         except KeyboardInterrupt:
             print("\n Exiting Program !!!!")
@@ -66,8 +78,8 @@ def port_scan(host, ports):
 port_scan(args.host, ports)
 
 
-# try: 
 
+# try: 
 #     # scan the port range 1-3000
 #     for port in range(1, 5):
 #         s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -81,3 +93,4 @@ port_scan(args.host, ports)
 #         if result ==0:
 #             print("Port {} is open".format(port))
 #         s.close()
+
